@@ -1,0 +1,27 @@
+# --- Vivado Generated Files ---
+*.log
+*.jou
+*.pb
+*.str
+*.vdi
+*.vds
+*.dir/
+.Xil/
+
+# --- Project & Artifacts ---
+*.xpr
+*.bit
+*.bin
+*.mcs
+*.prm
+*.hw/
+*.sim/
+*.runs/
+*.cache/
+*.ip_user_files/
+
+# --- User-Specific Local Settings ---
+*.xpr.user
+.Xil/
+vivado_*.str
+vivado_*.ini
