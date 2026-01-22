@@ -9,7 +9,7 @@ module uart_rx (
     output logic data_valid,
     output logic busy,
     output logic frame_err
-);
+    );
     
     logic baud_tick;
     logic rx_sync;
@@ -105,7 +105,9 @@ module uart_rx (
             DONE: next_state = IDLE;
             default: next_state = state;
         endcase
-   end 
+    end
+   
+   
     assign busy = (state != IDLE);
     assign data_valid = (state == DONE);
     

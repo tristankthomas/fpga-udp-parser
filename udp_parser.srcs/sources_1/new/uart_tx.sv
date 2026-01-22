@@ -8,7 +8,7 @@ module uart_tx (
     output logic tx,
     output logic busy,
     output logic tx_done
-);
+    );
     logic baud_tick;
     typedef enum logic [2:0] { IDLE, START, DATA, STOP, DONE } state_t;
     
