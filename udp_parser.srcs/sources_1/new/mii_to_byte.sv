@@ -23,6 +23,7 @@ module mii_to_byte(
                 // captures first nibble
                 low_nibble <= rx_data;
                 nibble_phase <= 1'b1;
+                byte_valid <= 1'b0;
             end else begin
                 // captures second nibble
                 byte_out <= {rx_data, low_nibble};
