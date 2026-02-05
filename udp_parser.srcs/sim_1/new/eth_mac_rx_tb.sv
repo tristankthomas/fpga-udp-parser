@@ -146,12 +146,11 @@ module eth_mac_rx_tb;
     // probably need to add a clocking block to avoid race conditions
     logic byte_valid_reg;
     always @(posedge rx_clk) begin
+        // mitigates the cycle delay between rx_byte_valid and wr_en/byte_out
         byte_valid_reg <= uut.rx_byte_valid;
         if (wr_en && byte_valid_reg) begin
             rx_frame_q.push_back(byte_out);
-            $display("[%0t] DEBUG: wr_en=%b, valid=%b, byte=%h", $time, wr_en, uut.rx_byte_valid, byte_out);
         end
-    
     end
    
    
