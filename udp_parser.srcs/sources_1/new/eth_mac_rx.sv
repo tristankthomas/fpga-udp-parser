@@ -112,8 +112,8 @@ module eth_mac_rx #(
                 
                 FCS: begin
                     state <= FINISH;
-                    // perform FCS check on fcs_buffer
-                    if (curr_crc == 32'h00000000) begin
+                    // perform FCS check - reversed order
+                    if (curr_crc == 32'hDEBB20E3) begin
                         frame_valid <= 1'b1;
                         frame_err <= 1'b0;
                     end else begin
