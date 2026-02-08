@@ -1,7 +1,7 @@
 
 package eth_pkg;
 
-    typedef logic [5:0] [7:0] mac_addr_t;
+    typedef logic [7:0] byte_t;
     
     localparam PREAMBLE_LEN = 7;
     localparam SFD_LEN = 1;

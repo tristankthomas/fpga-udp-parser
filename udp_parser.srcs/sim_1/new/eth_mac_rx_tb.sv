@@ -24,14 +24,14 @@ module eth_mac_rx_tb;
 
     parameter RX_CLK_FREQ = 25_000_000; // 25MHz clk
     parameter RX_CLK_PERIOD = 1.0e9/RX_CLK_FREQ;
-    parameter mac_addr_t DEST_MAC = 48'h04_A4_DD_09_35_C7;
+    parameter DEST_MAC = 48'h04_A4_DD_09_35_C7;
     
     logic rx_clk;
     logic rx_rst_n;
     logic rx_valid;
     logic [3:0] rx_data;
     logic [7:0] byte_out;
-    logic flush_frame, frame_valid, wr_en;
+    logic frame_err, frame_valid, wr_en;
     logic [7:0] rx_frame_q[$]; // queue used to store uut result
     logic [7:0] tx_frame_q[$]; // queue used to store send data
     
@@ -44,7 +44,7 @@ module eth_mac_rx_tb;
         .eth_rx_data(rx_data),
         .eth_rx_valid(rx_valid),
         .byte_out(byte_out),
-        .flush_frame(flush_frame),
+        .frame_err(frame_err),
         .frame_valid(frame_valid),
         .wr_en(wr_en)
     );
@@ -53,6 +53,102 @@ module eth_mac_rx_tb;
     initial rx_clk = 0;
     always #(RX_CLK_PERIOD) rx_clk <= ~rx_clk;
     
+    
+    // ethernet frame class
+    class eth_frame;
+        byte_t [5:0] dest_mac, source_mac;
+        byte_t [1:0] ether_type;
+        byte_t payload[];
+        byte_t [3:0] fcs;
+        
+        function new(
+            byte_t [5:0] dest_mac,
+            byte_t [5:0] source_mac,
+            byte_t [1:0] ether_type,
+            byte_t payload[]
+        );
+            
+            this.dest_mac = dest_mac;
+            this.source_mac = source_mac;
+            this.ether_type = ether_type;
+            this.payload = payload;
+            this.fcs = calculate_fcs();
+            
+        endfunction
+        
+        function byte_t [3:0] calculate_fcs();
+            logic [31:0] crc_reg;
+            crc_reg = 32'h00000000;
+            $display("[CRC TRACE] Initial State: %h", crc_reg);
+        
+            // Trace Destination MAC
+            for (int i = 5; i >= 0; i--) begin
+                crc_reg = get_next_crc(crc_reg, dest_mac[i]);
+                $display("[CRC TRACE] After Dest MAC[%0d] (%h): %h", i, dest_mac[i], crc_reg);
+            end
+        
+            // Trace Source MAC
+            for (int i = 5; i >= 0; i--) begin
+                crc_reg = get_next_crc(crc_reg, source_mac[i]);
+                $display("[CRC TRACE] After Source MAC[%0d] (%h): %h", i, source_mac[i], crc_reg);
+            end
+        
+            // Trace EtherType
+            for (int i = 1; i >= 0; i--) begin
+                crc_reg = get_next_crc(crc_reg, ether_type[i]);
+                $display("[CRC TRACE] After EtherType[%0d] (%h): %h", i, ether_type[i], crc_reg);
+            end
+        
+            // Trace Payload
+            foreach (payload[i]) begin
+                crc_reg = get_next_crc(crc_reg, payload[i]);
+                $display("[CRC TRACE] After Payload[%0d] (%h): %h", i, payload[i], crc_reg);
+            end
+        
+            $display("[CRC TRACE] Final Result (Post-XOR): %h", crc_reg ^ 32'hFFFFFFFF);
+            return crc_reg ^ 32'hFFFFFFFF;
+        endfunction
+        
+        // stores the 
+        function logic [31:0] get_next_crc(input logic [31:0] c, input byte_t d);
+            logic [31:0] next_crc;
+            next_crc[0] = c[24] ^ c[30] ^ d[7];
+            next_crc[1] = c[24] ^ c[25] ^ c[30] ^ c[31] ^ d[6];
+            next_crc[2] = c[24] ^ c[25] ^ c[26] ^ c[30] ^ c[31] ^ d[5];
+            next_crc[3] = c[25] ^ c[26] ^ c[27] ^ c[31] ^ d[4];
+            next_crc[4] = c[24] ^ c[26] ^ c[27] ^ c[28] ^ c[30] ^ d[3];
+            next_crc[5] = c[24] ^ c[25] ^ c[27] ^ c[28] ^ c[29] ^ c[30] ^ c[31] ^ d[2];
+            next_crc[6] = c[25] ^ c[26] ^ c[28] ^ c[29] ^ c[30] ^ c[31] ^ d[1];
+            next_crc[7] = c[24] ^ c[26] ^ c[27] ^ c[29] ^ c[31] ^ d[0];
+            next_crc[8] = c[0] ^ c[24] ^ c[25] ^ c[27] ^ c[28];
+            next_crc[9] = c[1] ^ c[25] ^ c[26] ^ c[28] ^ c[29];
+            next_crc[10] = c[2] ^ c[24] ^ c[26] ^ c[27] ^ c[29];
+            next_crc[11] = c[3] ^ c[24] ^ c[25] ^ c[27] ^ c[28];
+            next_crc[12] = c[4] ^ c[24] ^ c[25] ^ c[26] ^ c[28] ^ c[29] ^ c[30];
+            next_crc[13] = c[5] ^ c[25] ^ c[26] ^ c[27] ^ c[29] ^ c[30] ^ c[31];
+            next_crc[14] = c[6] ^ c[26] ^ c[27] ^ c[28] ^ c[30] ^ c[31];
+            next_crc[15] = c[7] ^ c[27] ^ c[28] ^ c[29] ^ c[31];
+            next_crc[16] = c[8] ^ c[24] ^ c[28] ^ c[29];
+            next_crc[17] = c[9] ^ c[25] ^ c[29] ^ c[30];
+            next_crc[18] = c[10] ^ c[26] ^ c[30] ^ c[31];
+            next_crc[19] = c[11] ^ c[27] ^ c[31];
+            next_crc[20] = c[12] ^ c[28];
+            next_crc[21] = c[13] ^ c[29];
+            next_crc[22] = c[14] ^ c[24];
+            next_crc[23] = c[15] ^ c[24] ^ c[25] ^ c[30];
+            next_crc[24] = c[16] ^ c[25] ^ c[26] ^ c[31];
+            next_crc[25] = c[17] ^ c[26] ^ c[27];
+            next_crc[26] = c[18] ^ c[24] ^ c[27] ^ c[28] ^ c[30];
+            next_crc[27] = c[19] ^ c[25] ^ c[28] ^ c[29] ^ c[31];
+            next_crc[28] = c[20] ^ c[26] ^ c[29] ^ c[30];
+            next_crc[29] = c[21] ^ c[27] ^ c[30] ^ c[31];
+            next_crc[30] = c[22] ^ c[28] ^ c[31];
+            next_crc[31] = c[23] ^ c[29];
+            
+            return next_crc;
+        endfunction
+        
+    endclass
     
     // driver
     task send_nibble (input logic [3:0] nibble);
@@ -66,21 +162,16 @@ module eth_mac_rx_tb;
         send_nibble(data[7:4]);
     endtask
     
-    task send_frame (
-        input mac_addr_t dest_mac,
-        input mac_addr_t source_mac,
-        input logic [1:0] [7:0] ether_type,
-        input logic [7:0] payload[],
-        input logic [3:0] [7:0] fcs
-        );
+    
+    task send_frame (eth_frame frame);
         
         // populate the expected results
-        for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(dest_mac[i]);
-        for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(source_mac[i]);
-        tx_frame_q.push_back(ether_type[15:8]);
-        tx_frame_q.push_back(ether_type[7:0]);
-        foreach(payload[i]) tx_frame_q.push_back(payload[i]);
-        for (int i = 3; i >= 0; i--) tx_frame_q.push_back(fcs[i]);
+        for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.dest_mac[i]);
+        for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.source_mac[i]);
+        tx_frame_q.push_back(frame.ether_type[15:8]);
+        tx_frame_q.push_back(frame.ether_type[7:0]);
+        foreach(frame.payload[i]) tx_frame_q.push_back(frame.payload[i]);
+        for (int i = 3; i >= 0; i--) tx_frame_q.push_back(frame.fcs[i]);
         
         // let mac know data is available
         rx_valid <= 1'b1;
@@ -96,32 +187,32 @@ module eth_mac_rx_tb;
         
         // send destination mac
         for (int i = MAC_LEN-1; i >= 0; i--) begin
-            send_byte(dest_mac[i]);
+            send_byte(frame.dest_mac[i]);
             @(posedge rx_clk);
         end
         
         // send source mac
         for (int i = MAC_LEN-1; i >= 0; i--) begin
-            send_byte(source_mac[i]);
+            send_byte(frame.source_mac[i]);
             @(posedge rx_clk);
         end
         
         // send ethertype
-        send_byte(ether_type[1]);
+        send_byte(frame.ether_type[1]);
         @(posedge rx_clk);
-        send_byte(ether_type[0]);
+        send_byte(frame.ether_type[0]);
         @(posedge rx_clk);
         
         // send payload
-        foreach(payload[i]) begin
-            send_byte(payload[i]);
+        foreach(frame.payload[i]) begin
+            send_byte(frame.payload[i]);
             @(posedge rx_clk);
         
         end
         
         // send FSC
         for (int i = 3; i >= 0; i--) begin
-            send_byte(fcs[i]);
+            send_byte(frame.fcs[i]);
             @(posedge rx_clk);
         end 
         
@@ -186,7 +277,7 @@ module eth_mac_rx_tb;
         end   
     end
     
-    always @(posedge flush_frame) begin
+    always @(posedge frame_err) begin
         $display("WARNING: Frame not received correctly.");
         tx_frame_q.delete();
         rx_frame_q.delete();
@@ -194,19 +285,20 @@ module eth_mac_rx_tb;
     end
     
    
-   
     initial begin
+        eth_frame frame;
         
         reset();
         
-        // valid frame
-        send_frame(
+        frame = new(
             DEST_MAC,
             48'h71_AB_D9_7E_01_10,
             16'h0800,
-            '{8'hDE, 8'hAD, 8'hBE, 8'hEF},
-            $urandom()
+            '{8'hDE, 8'hAD, 8'hBE, 8'hEF}
         );
+        
+        // valid frame
+        send_frame(frame);
         
         repeat(20) @(posedge rx_clk);
         
