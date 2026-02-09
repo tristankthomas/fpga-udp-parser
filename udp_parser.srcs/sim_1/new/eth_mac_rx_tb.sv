@@ -49,6 +49,7 @@ module eth_mac_rx_tb;
         .wr_en(wr_en)
     );
     
+    
     // setup clk
     initial rx_clk = 0;
     always #(RX_CLK_PERIOD) rx_clk <= ~rx_clk;
@@ -171,7 +172,7 @@ module eth_mac_rx_tb;
         tx_frame_q.push_back(frame.ether_type[15:8]);
         tx_frame_q.push_back(frame.ether_type[7:0]);
         foreach(frame.payload[i]) tx_frame_q.push_back(frame.payload[i]);
-        for (int i = 3; i >= 0; i--) tx_frame_q.push_back(frame.fcs[i]);
+        for (int i = 0; i < 4; i++) tx_frame_q.push_back(frame.fcs[i]);
         
         // let mac know data is available
         rx_valid <= 1'b1;
@@ -211,7 +212,7 @@ module eth_mac_rx_tb;
         end
         
         // send FSC
-        for (int i = 3; i >= 0; i--) begin
+        for (int i = 0; i < 4; i++) begin
             send_byte(frame.fcs[i]);
             @(posedge rx_clk);
         end 
@@ -300,7 +301,7 @@ module eth_mac_rx_tb;
         // valid frame
         send_frame(frame);
         
-        repeat(20) @(posedge rx_clk);
+        repeat(IFG_CYCLES+4) @(posedge rx_clk);
         
         $display("Simulation Finished at %t", $time);
         $finish;        

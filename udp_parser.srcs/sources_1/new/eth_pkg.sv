@@ -11,7 +11,7 @@ package eth_pkg;
     localparam FCS_LEN = 4;
     localparam HEADER_LEN = (2 * MAC_LEN) + ETHERTYPE_LEN;
     
-    localparam IFG_CYCLES = 24;
+    localparam IFG_CYCLES = 12;
    
     
     localparam PREAMBLE_BYTE = 8'h55;
