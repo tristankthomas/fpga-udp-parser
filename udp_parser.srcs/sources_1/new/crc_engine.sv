@@ -23,6 +23,7 @@
 module crc_engine(
     input logic clk,
     input logic rst_n,
+    input logic init,
     input logic [7:0] byte_in,
     input logic en,
     output logic [31:0] crc
@@ -30,11 +31,12 @@ module crc_engine(
     
     
     always_ff @(posedge clk or negedge rst_n) begin
-        if (~rst_n) begin
+        if (~rst_n)
             crc <= 32'hFFFFFFFF;
-        end else if (en) begin
+        else if (init)
+            crc <= 32'hFFFFFFFF;
+        else if (en)
             crc <= next_crc(crc, byte_in);
-        end
     end
     
     

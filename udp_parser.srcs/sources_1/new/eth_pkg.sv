@@ -2,7 +2,7 @@
 package eth_pkg;
 
     typedef logic [7:0] byte_t;
-    
+    typedef byte_t byte_array_t[];
     localparam PREAMBLE_LEN = 7;
     localparam SFD_LEN = 1;
     localparam MAC_LEN = 6;

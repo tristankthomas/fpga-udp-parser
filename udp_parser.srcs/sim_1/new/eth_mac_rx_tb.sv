@@ -80,33 +80,27 @@ module eth_mac_rx_tb;
         function byte_t [3:0] calculate_fcs();
             logic [31:0] crc_reg;
             crc_reg = 32'hFFFFFFFF;
-            $display("[CRC TRACE] Initial State: %h", crc_reg);
         
             // Trace Destination MAC
             for (int i = 5; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, dest_mac[i]);
-                $display("[CRC TRACE] After Dest MAC[%0d] (%h): %h", i, dest_mac[i], crc_reg);
             end
         
             // Trace Source MAC
             for (int i = 5; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, source_mac[i]);
-                $display("[CRC TRACE] After Source MAC[%0d] (%h): %h", i, source_mac[i], crc_reg);
             end
         
             // Trace EtherType
             for (int i = 1; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, ether_type[i]);
-                $display("[CRC TRACE] After EtherType[%0d] (%h): %h", i, ether_type[i], crc_reg);
             end
         
             // Trace Payload
             foreach (payload[i]) begin
                 crc_reg = get_next_crc(crc_reg, payload[i]);
-                $display("[CRC TRACE] After Payload[%0d] (%h): %h", i, payload[i], crc_reg);
             end
         
-            $display("[CRC TRACE] Final Result (Post-XOR): %h", crc_reg ^ 32'hFFFFFFFF);
             return crc_reg ^ 32'hFFFFFFFF;
         endfunction
         
@@ -152,19 +146,19 @@ module eth_mac_rx_tb;
     endclass
     
     // driver
-    task send_nibble (input logic [3:0] nibble);
+    task automatic send_nibble (input logic [3:0] nibble);
         rx_data <= nibble;
     endtask
     
-    task send_byte (input logic [7:0] data);
-        $display("DEBUG: Sending byte %h", data);
+    task automatic send_byte (input logic [7:0] data);
+//        $display("DEBUG: Sending byte %h", data);
         send_nibble(data[3:0]);
         @(posedge rx_clk);
         send_nibble(data[7:4]);
     endtask
     
     
-    task send_frame (eth_frame frame);
+    task automatic send_frame (eth_frame frame);
         
         // populate the expected results
         for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.dest_mac[i]);
@@ -222,6 +216,9 @@ module eth_mac_rx_tb;
         rx_valid <= 1'b0;
         rx_data  <= 4'h0;
         
+        // interframe gap
+        repeat(IFG_CYCLES) @(posedge rx_clk);
+        
     endtask
     
     
@@ -232,6 +229,17 @@ module eth_mac_rx_tb;
         repeat(4) @(posedge rx_clk);
         rx_rst_n <= 1'b1;
     endtask
+    
+    function automatic byte_array_t random_payload(input int length);
+        byte_array_t payload;
+        payload = new[length];
+    
+        for (int i = 0; i < length; i++) begin
+            payload[i] = $urandom_range(0, 255);
+        end
+    
+        return payload;
+    endfunction
     
     
     // storing result
@@ -287,22 +295,38 @@ module eth_mac_rx_tb;
     
    
     initial begin
-        eth_frame frame;
+        eth_frame f0, f1, f2;
         
         reset();
         
-        frame = new(
+        // valid frame
+        f0 = new(
             DEST_MAC,
             48'h71_AB_D9_7E_01_10,
             16'h0800,
-            '{8'hDE, 8'hAD, 8'hBE, 8'hEF}
+            random_payload(36)
         );
+        send_frame(f0);
         
         // valid frame
-        send_frame(frame);
+        f1 = new(
+            DEST_MAC,
+            48'h71_AB_D9_7E_01_10,
+            16'h0800,
+            random_payload(200)
+        );
+        send_frame(f1);
         
-        repeat(IFG_CYCLES+4) @(posedge rx_clk);
+        // invalid frame - wrong mac
+        f2 = new(
+            48'hFF_FF_FF_FF_FF_FF,
+            48'h71_AB_D9_7E_01_10,
+            16'h0800,
+            random_payload(80)
+        );
+        send_frame(f2);
         
+        @(posedge rx_clk);
         $display("Simulation Finished at %t", $time);
         $finish;        
         
