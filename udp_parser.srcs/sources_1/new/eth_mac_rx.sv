@@ -2,7 +2,7 @@ import eth_pkg::*;
 
 module eth_mac_rx #(
     parameter byte_t [3:0] MAC_ADDR
-    )(
+)(
     input logic eth_rx_clk,
     input logic rst_n,
     input logic [3:0] eth_rx_data,
@@ -11,7 +11,7 @@ module eth_mac_rx #(
     output logic frame_err,
     output logic frame_valid,
     output logic wr_en
-    );
+);
     
     logic rx_byte_valid;
     logic [7:0] rx_byte;
@@ -130,7 +130,7 @@ module eth_mac_rx #(
                     end
                     
                     FINISH: begin
-                        frame_valid <= 0'b0;
+                        frame_valid <= 1'b0;
                         if (byte_cnt == IFG_CYCLES) begin
                             state <= IDLE;           
                             byte_cnt <= 1'b0;

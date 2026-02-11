@@ -163,8 +163,8 @@ module eth_mac_rx_tb;
         // populate the expected results
         for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.dest_mac[i]);
         for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.source_mac[i]);
-        tx_frame_q.push_back(frame.ether_type[15:8]);
-        tx_frame_q.push_back(frame.ether_type[7:0]);
+        tx_frame_q.push_back(frame.ether_type[1]);
+        tx_frame_q.push_back(frame.ether_type[0]);
         foreach(frame.payload[i]) tx_frame_q.push_back(frame.payload[i]);
         for (int i = 0; i < 4; i++) tx_frame_q.push_back(frame.fcs[i]);
         
