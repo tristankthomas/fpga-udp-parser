@@ -39,11 +39,11 @@ module eth_mac_rx_tb;
     eth_mac_rx #(
         .MAC_ADDR(DEST_MAC)
     ) uut (
-        .eth_rx_clk(rx_clk),
+        .rx_clk(rx_clk),
         .rst_n(rx_rst_n),
-        .eth_rx_data(rx_data),
-        .eth_rx_valid(rx_valid),
-        .byte_out(byte_out),
+        .rx_data(rx_data),
+        .rx_valid(rx_valid),
+        .data_out(byte_out),
         .frame_err(frame_err),
         .frame_valid(frame_valid),
         .wr_en(wr_en)
@@ -166,7 +166,6 @@ module eth_mac_rx_tb;
         tx_frame_q.push_back(frame.ether_type[1]);
         tx_frame_q.push_back(frame.ether_type[0]);
         foreach(frame.payload[i]) tx_frame_q.push_back(frame.payload[i]);
-        for (int i = 0; i < 4; i++) tx_frame_q.push_back(frame.fcs[i]);
         
         // let mac know data is available
         rx_valid <= 1'b1;
@@ -244,11 +243,8 @@ module eth_mac_rx_tb;
     
     // storing result
     // probably need to add a clocking block to avoid race conditions
-    logic byte_valid_reg;
     always @(posedge rx_clk) begin
-        // mitigates the cycle delay between rx_byte_valid and wr_en/byte_out
-        byte_valid_reg <= uut.rx_byte_valid;
-        if (wr_en && byte_valid_reg) begin
+        if (wr_en) begin
             rx_frame_q.push_back(byte_out);
         end
     end

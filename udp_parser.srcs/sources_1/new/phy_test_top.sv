@@ -22,7 +22,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module phy_test (
+module phy_test_top (
     input  logic sys_clk,
     output logic ETH_nRST,
     input  logic ETH_TXCK,

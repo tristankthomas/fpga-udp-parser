@@ -3,8 +3,8 @@
 module udp_parser_top(
     input logic PL_CLK_50M,
     input logic ETH_RXCK,
-    (* MARK_DEBUG = "TRUE" *) input logic ETH_RXDV,
-    (* MARK_DEBUG = "TRUE" *) input logic [3:0] ETH_RXD,
+    input logic ETH_RXDV,
+    input logic [3:0] ETH_RXD,
     input logic PL_KEY1,
     output logic ETH_nRST,
     output logic PL_LED1,
@@ -13,10 +13,11 @@ module udp_parser_top(
 );
 
     parameter MAC_ADDR = 48'h04A4DD0935C7;
+    
     logic rst_n;
     logic [7:0] fifo_byte;
-    (* MARK_DEBUG = "TRUE" *) logic frame_err;
-    (* MARK_DEBUG = "TRUE" *) logic frame_valid;
+    logic frame_err;
+    logic frame_valid;
     logic wr_en;
     logic por_done; // Power on Reset done
     
@@ -31,22 +32,7 @@ module udp_parser_top(
     assign rst_n = por_done && PL_KEY1; 
     assign ETH_nRST = rst_n;
     
-    // instantiate mac
-    eth_mac_rx #(
-        .MAC_ADDR(MAC_ADDR)
-    ) mac_rx (
-        .eth_rx_clk(ETH_RXCK),
-        .rst_n(rst_n),
-        .eth_rx_data(ETH_RXD),
-        .eth_rx_valid(ETH_RXDV),
-        .byte_out(fifo_byte),
-        .frame_err(frame_err),
-        .frame_valid(frame_valid),
-        .wr_en(wr_en)
-    );
-    
-    
-//    // stretch frame_valid for LED1
+    // stretch frame_valid for LED1
     pulse_stretcher #(
         .COUNT_WIDTH(21)
     ) ps_valid (
@@ -56,17 +42,67 @@ module udp_parser_top(
         .dout(PL_LED1)
     );
 
-    // stretch frame_err for LED2
+//    // stretch frame_err for LED2
+//    pulse_stretcher #(
+//        .COUNT_WIDTH(21)
+//    ) ps_err (
+//        .clk(ETH_RXCK),
+//        .rst_n(rst_n),
+//        .trigger(frame_err),
+//        .dout(PL_LED2)
+//    );
+    
+    
+    // instantiate mac
+    eth_mac_rx #(
+        .MAC_ADDR(MAC_ADDR)
+    ) mac_rx (
+        .rx_clk(ETH_RXCK),
+        .rst_n(rst_n),
+        .rx_data(ETH_RXD),
+        .rx_valid(ETH_RXDV),
+        .data_out(fifo_byte),
+        .frame_err(frame_err),
+        .frame_valid(frame_valid),
+        .wr_en(wr_en)
+    );
+    
+
+    logic [7:0] m_axis_tdata;
+    logic m_axis_tvalid;
+    logic m_axis_tlast;
+    logic m_axis_tready;
+    logic s_axis_tready;
+    logic s_axis_tlast;
+    logic fifo_overflow;
+    
+    // feed output data into fifo
+    axis_data_fifo_0 rx_fifo (
+      .s_axis_aresetn(rst_n),
+      .s_axis_aclk(ETH_RXCK),
+      .s_axis_tvalid(wr_en),
+      .s_axis_tready(s_axis_tready),
+      .s_axis_tdata(fifo_byte),
+      .s_axis_tlast(s_axis_tlast),
+      .m_axis_aclk(PL_CLK_50M),
+      .m_axis_tvalid(m_axis_tvalid),
+      .m_axis_tready(m_axis_tready),
+      .m_axis_tdata(m_axis_tdata),
+      .m_axis_tlast(m_axis_tlast)
+
+    );
+    
+    assign s_axis_tlast = frame_valid || frame_err;
+    assign fifo_overflow = wr_en && !s_axis_tready;
+ 
+    // stretch fifo overflow for LED2
     pulse_stretcher #(
         .COUNT_WIDTH(21)
-    ) ps_err (
+    ) ps_fifo_err (
         .clk(ETH_RXCK),
         .rst_n(rst_n),
-        .trigger(frame_err),
+        .trigger(fifo_overflow_detected),
         .dout(PL_LED2)
     );
-
-    
-    // feed output data into fifo (todo)
     
 endmodule

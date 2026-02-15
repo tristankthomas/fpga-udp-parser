@@ -1,12 +1,22 @@
 from scapy.all import Ether, Raw, sendp
+import os
+import time
 
-dst_mac = "04:A4:DD:09:35:C7" # FPGA MAC
-src_mac = "00:E0:4C:B3:02:F6" # NIC MAC
+dst_mac = "04:A4:DD:09:35:C7"  # FPGA MAC
+src_mac = "00:E0:4C:B3:02:F6"  # NIC MAC
 
-payload = b'Hello FPGA'
+# interface to send on
+iface = "Ethernet"
 
-# build ethernet frame
-frame = Ether(dst=dst_mac, src=src_mac, type=0x1234)/Raw(load=payload)
+# send continuously
+while True:
+    # generate random payload of 32 bytes
+    payload = os.urandom(32)
 
-# send frame to FPGA
-sendp(frame, iface="Ethernet", verbose=True)
+    # build ethernet frame
+    frame = Ether(dst=dst_mac, src=src_mac, type=0x1234) / Raw(load=payload)
+
+    # send the frame
+    sendp(frame, iface=iface, verbose=True)
+
+    time.sleep(1)  # 10 ms
