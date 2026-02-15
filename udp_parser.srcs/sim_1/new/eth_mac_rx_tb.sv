@@ -81,22 +81,22 @@ module eth_mac_rx_tb;
             logic [31:0] crc_reg;
             crc_reg = 32'hFFFFFFFF;
         
-            // Trace Destination MAC
+            // destination MAC
             for (int i = 5; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, dest_mac[i]);
             end
         
-            // Trace Source MAC
+            // source MAC
             for (int i = 5; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, source_mac[i]);
             end
         
-            // Trace EtherType
+            // EtherType
             for (int i = 1; i >= 0; i--) begin
                 crc_reg = get_next_crc(crc_reg, ether_type[i]);
             end
         
-            // Trace Payload
+            // payload
             foreach (payload[i]) begin
                 crc_reg = get_next_crc(crc_reg, payload[i]);
             end
@@ -104,7 +104,7 @@ module eth_mac_rx_tb;
             return crc_reg ^ 32'hFFFFFFFF;
         endfunction
         
-        // stores the 
+        // ouputs the CRC after 8 bit shifts (generated through crc_engine_gen.py)
         function logic [31:0] get_next_crc(input logic [31:0] c, input byte_t d);
             logic [31:0] next_crc;
             next_crc[0] = c[2] ^ c[8] ^ d[2];

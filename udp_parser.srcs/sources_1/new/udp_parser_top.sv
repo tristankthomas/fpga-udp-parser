@@ -3,8 +3,8 @@
 module udp_parser_top(
     input logic PL_CLK_50M,
     input logic ETH_RXCK,
-    input logic ETH_RXDV,
-    input logic [3:0] ETH_RXD,
+    (* MARK_DEBUG = "TRUE" *) input logic ETH_RXDV,
+    (* MARK_DEBUG = "TRUE" *) input logic [3:0] ETH_RXD,
     input logic PL_KEY1,
     output logic ETH_nRST,
     output logic PL_LED1,
@@ -12,11 +12,11 @@ module udp_parser_top(
 
 );
 
-    parameter MAC_ADDR = 48'h04_A4_DD_09_35_C7;
+    parameter MAC_ADDR = 48'h04A4DD0935C7;
     logic rst_n;
-    logic [3:0] rx_data;
     logic [7:0] fifo_byte;
-    logic frame_err, frame_valid;
+    (* MARK_DEBUG = "TRUE" *) logic frame_err;
+    (* MARK_DEBUG = "TRUE" *) logic frame_valid;
     logic wr_en;
     logic por_done; // Power on Reset done
     

@@ -1,7 +1,7 @@
 import eth_pkg::*;
 
 module eth_mac_rx #(
-    parameter byte_t [3:0] MAC_ADDR
+    parameter byte_t [5:0] MAC_ADDR
 )(
     input logic eth_rx_clk,
     input logic rst_n,
@@ -13,11 +13,17 @@ module eth_mac_rx #(
     output logic wr_en
 );
     
-    logic rx_byte_valid;
-    logic [7:0] rx_byte;
+    (* MARK_DEBUG = "TRUE" *) logic rx_byte_valid;
+    (* MARK_DEBUG = "TRUE" *) logic [7:0] rx_byte;
     logic compute_crc;
     logic [31:0] curr_crc;
     logic init_crc;
+    (* MARK_DEBUG = "TRUE" *) logic [$clog2(MAX_PAYLOAD_LEN)-1:0] byte_cnt;
+    
+    typedef enum logic [2:0] { IDLE, PREAMBLE, HEADER, PAYLOAD, FCS, FINISH } state_t;
+    (* MARK_DEBUG = "TRUE" *) state_t state;
+    
+    
     
     mii_to_byte u_mii_to_byte (
         .rx_clk(eth_rx_clk),
@@ -37,11 +43,7 @@ module eth_mac_rx #(
         .crc(curr_crc) 
     );
     
-    typedef enum logic [2:0] { IDLE, PREAMBLE, HEADER, PAYLOAD, FCS, FINISH } state_t;
-    state_t state, next_state;
-    logic [$clog2(MAX_PAYLOAD_LEN)-1:0] byte_cnt;
-    
-    
+
     
     always_ff @(posedge eth_rx_clk or negedge rst_n) begin
         if (~rst_n) begin
@@ -114,7 +116,7 @@ module eth_mac_rx #(
                     PAYLOAD: begin
                         state <= FCS;
                         wr_en <= 1'b0;
-                    
+                        byte_cnt <= 1'b0;
                     end
                     
                     FCS: begin
