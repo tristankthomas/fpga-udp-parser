@@ -48,7 +48,7 @@ module udp_parser_top(
     
 //    // stretch frame_valid for LED1
     pulse_stretcher #(
-        .COUNT_WIDTH(23)
+        .COUNT_WIDTH(21)
     ) ps_valid (
         .clk(ETH_RXCK),
         .rst_n(rst_n),
@@ -58,7 +58,7 @@ module udp_parser_top(
 
     // stretch frame_err for LED2
     pulse_stretcher #(
-        .COUNT_WIDTH(23)
+        .COUNT_WIDTH(21)
     ) ps_err (
         .clk(ETH_RXCK),
         .rst_n(rst_n),
