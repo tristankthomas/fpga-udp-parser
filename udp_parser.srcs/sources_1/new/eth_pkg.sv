@@ -16,6 +16,7 @@ package eth_pkg;
     
     localparam PREAMBLE_BYTE = 8'h55;
     localparam SFD_BYTE = 8'hD5;
+    localparam IPV4_ETHERTYPE = 16'h0800;
      
     
 endpackage

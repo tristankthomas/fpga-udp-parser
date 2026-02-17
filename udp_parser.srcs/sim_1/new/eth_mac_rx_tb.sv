@@ -213,7 +213,7 @@ module eth_mac_rx_tb;
         
         // end of frame
         rx_valid <= 1'b0;
-        rx_data  <= 4'h0;
+        rx_data <= 4'h0;
         
         // interframe gap
         repeat(IFG_CYCLES) @(posedge rx_clk);
@@ -297,7 +297,7 @@ module eth_mac_rx_tb;
         // valid frame
         f0 = new(
             DEST_MAC,
-            48'h71_AB_D9_7E_01_10,
+            48'h71ABD97E0110,
             16'h0800,
             random_payload(36)
         );

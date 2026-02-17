@@ -72,6 +72,7 @@ module udp_parser_top(
     logic m_axis_tvalid;
     logic m_axis_tlast;
     logic m_axis_tready;
+    logic m_axis_tuser;
     logic s_axis_tready;
     logic s_axis_tlast;
     logic fifo_overflow;
@@ -84,12 +85,13 @@ module udp_parser_top(
       .s_axis_tready(s_axis_tready),
       .s_axis_tdata(fifo_byte),
       .s_axis_tlast(s_axis_tlast),
+      .s_axis_tuser(frame_err),
       .m_axis_aclk(PL_CLK_50M),
       .m_axis_tvalid(m_axis_tvalid),
       .m_axis_tready(m_axis_tready),
       .m_axis_tdata(m_axis_tdata),
-      .m_axis_tlast(m_axis_tlast)
-
+      .m_axis_tlast(m_axis_tlast),
+      .m_axis_tuser(m_axis_tuser)
     );
     
     assign s_axis_tlast = frame_valid || frame_err;
@@ -101,7 +103,7 @@ module udp_parser_top(
     ) ps_fifo_err (
         .clk(ETH_RXCK),
         .rst_n(rst_n),
-        .trigger(fifo_overflow_detected),
+        .trigger(fifo_overflow),
         .dout(PL_LED2)
     );
     

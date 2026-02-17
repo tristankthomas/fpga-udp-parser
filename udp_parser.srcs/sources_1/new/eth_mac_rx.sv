@@ -23,8 +23,6 @@ module eth_mac_rx #(
     typedef enum logic [2:0] { IDLE, PREAMBLE, HEADER, PAYLOAD, FCS, FINISH } state_t;
     state_t state;
     
-    
-    
     mii_to_byte u_mii_to_byte (
         .rx_clk(rx_clk),
         .rst_n(rst_n),
@@ -141,6 +139,7 @@ module eth_mac_rx #(
     
     assign compute_crc = rx_byte_valid & (state == HEADER | state == PAYLOAD);
     assign data_out = data_pipe[3];
+    // suppress writes as soon as the last byte is read so that we do not write fcs[0]
     assign wr_en = wr_pipe[3] & rx_byte_valid;
     
 endmodule
