@@ -98,7 +98,7 @@ module eth_mac_rx #(
                                 
                             end
                             byte_cnt <= byte_cnt + 1'b1;
-                        end else if (byte_cnt < HEADER_LEN) begin
+                        end else if (byte_cnt < ETH_HEADER_LEN) begin
                             // source mac and ethertype
                             byte_cnt <= byte_cnt + 1'b1;
                         end else begin

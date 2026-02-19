@@ -13,7 +13,7 @@ module udp_parser_top #(
 
 );
 
-    parameter MAC_ADDR = 48'h04A4DD0935C7;
+    localparam MAC_ADDR = 48'h04A4DD0935C7;
     
     logic rst_n;
     logic [7:0] fifo_byte;
@@ -87,13 +87,15 @@ module udp_parser_top #(
 //        .dout(PL_LED2)
 //    );
     
-    logic [7:0] ip_data_in;
-    logic ip_data_valid;
-    logic ip_eof;
-    logic ip_eth_err;
+    logic [7:0] eth_data_in;
+    logic eth_data_valid;
+    logic eth_eof;
+    logic eth_err;
     
     // send data through ethernet header passer
-    eth_parser u_eth_parser (
+    eth_parser #(
+        .ETHERTYPE(16'h0800)
+    ) u_eth_parser (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
         .fifo_valid(m_axis_tvalid),
@@ -101,22 +103,22 @@ module udp_parser_top #(
         .fifo_eof(m_axis_tlast),
         .fifo_frame_err(m_axis_tuser),
         .fifo_ready(m_axis_tready),
-        .ip_data_out(ip_data_in),
-        .ip_valid(ip_data_valid),
-        .ip_eof(ip_eof),
-        .ip_eth_err(ip_eth_err)
+        .eth_data_out(eth_data_in),
+        .eth_byte_valid(eth_data_valid),
+        .eth_eof(eth_eof),
+        .eth_err(eth_err)
     );
     
 //    logic ip_frame_valid = ip_eof && ~ip_eth_err;
-    assign PL_LED1 = ip_eof && ~ip_eth_err;
-    assign PL_LED2 = ip_eth_err;
+    assign PL_LED1 = eth_eof && ~eth_err;
+    assign PL_LED2 = eth_err;
 //    // stretch frame_valid for LED1
 //    pulse_stretcher #(
 //        .COUNT_WIDTH(21)
 //    ) ps_valid (
 //        .clk(ETH_RXCK),
 //        .rst_n(rst_n),
-//        .trigger(ip_frame_valid),
+//        .trigger(eth_frame_valid),
 //        .dout(PL_LED1)
 //    );
     
@@ -126,7 +128,7 @@ module udp_parser_top #(
 //    ) ps_err (
 //        .clk(ETH_RXCK),
 //        .rst_n(rst_n),
-//        .trigger(ip_eth_err),
+//        .trigger(eth_err),
 //        .dout(PL_LED2)
 //    );
     
