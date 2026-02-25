@@ -109,28 +109,29 @@ module udp_parser_top #(
         .eth_err(eth_err)
     );
     
-//    logic ip_frame_valid = ip_eof && ~ip_eth_err;
-    assign PL_LED1 = eth_eof && ~eth_err;
-    assign PL_LED2 = eth_err;
-//    // stretch frame_valid for LED1
-//    pulse_stretcher #(
-//        .COUNT_WIDTH(21)
-//    ) ps_valid (
-//        .clk(ETH_RXCK),
-//        .rst_n(rst_n),
-//        .trigger(eth_frame_valid),
-//        .dout(PL_LED1)
-//    );
+    logic eth_frame_valid;
+    assign eth_frame_valid = eth_eof && ~eth_err;
+//    assign PL_LED1 = eth_eof && ~eth_err;
+//    assign PL_LED2 = eth_err;
+    // stretch frame_valid for LED1
+    pulse_stretcher #(
+        .COUNT_WIDTH(5)
+    ) ps_valid (
+        .clk(PL_CLK_50M),
+        .rst_n(rst_n),
+        .trigger(eth_frame_valid),
+        .dout(PL_LED1)
+    );
     
-//    // stretch frame_err for LED2
-//    pulse_stretcher #(
-//        .COUNT_WIDTH(21)
-//    ) ps_err (
-//        .clk(ETH_RXCK),
-//        .rst_n(rst_n),
-//        .trigger(eth_err),
-//        .dout(PL_LED2)
-//    );
+    // stretch frame_err for LED2
+    pulse_stretcher #(
+        .COUNT_WIDTH(5)
+    ) ps_err (
+        .clk(PL_CLK_50M),
+        .rst_n(rst_n),
+        .trigger(eth_err),
+        .dout(PL_LED2)
+    );
     
     
 endmodule
