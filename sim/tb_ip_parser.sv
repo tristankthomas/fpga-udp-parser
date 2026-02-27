@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module tp_ip_parser;
+module tb_ip_parser;
 
     parameter CLK_FREQ = 50_000_000;
     parameter CLK_PERIOD = 1.0e9/CLK_FREQ;
@@ -93,6 +93,12 @@ module tp_ip_parser;
         input logic crc_err
     );
         logic [15:0] total_len;
+    
+        $write("Payload (%0d bytes): ", payload.size());
+        foreach (payload[i])
+            $write("%02X ", payload[i]);
+        $display("");
+
         error_expected = ip_version !== 4'd4 || dest_ip_addr !== IP_ADDRESS || crc_err || trans_protocol !== TRANSPORT_PROTOCOL;
         
         // send ip version and ihl
@@ -159,10 +165,10 @@ module tp_ip_parser;
         if (ip_byte_valid) rx_data_q.push_back(ip_data_out);
         
         // if error occurs log it
-        if (ip_err) error_found = 1'b1;;
+        if (ip_err) error_found = 1'b1;
         
         // check results once frame complete
-        if (ip_eof) check_frame();
+        if (ip_eof || ip_err) check_frame();
     end
     
     
@@ -225,6 +231,18 @@ module tp_ip_parser;
             random_payload(55),
             0
         );
+        
+        $display("Sending invalid frame - crc error");
+        // valid frame
+        send_frame(
+            4'd4,
+            8'd17,
+            32'h12341234,
+            IP_ADDRESS,
+            random_payload(55),
+            1
+        );
+        
         
         $display("\nSimulation Finished at %t", $time);
         $finish;

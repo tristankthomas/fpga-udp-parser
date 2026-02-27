@@ -43,7 +43,8 @@ module tb_udp_parser_top;
 
     // instantiate system
     udp_parser_top #(
-        .POR_BIT(4)
+        .POR_BIT(4),
+        .PULSE_CNT_WIDTH(1)
     ) uut (
         .PL_CLK_50M(PL_CLK_50M),
         .ETH_RXCK(ETH_RXCK),
@@ -159,7 +160,10 @@ module tb_udp_parser_top;
     
     
     task automatic send_frame (input eth_frame frame, input logic crc_err=1'b0);
-
+        $write("Payload (%0d bytes): ", frame.payload.size());
+        foreach (frame.payload[i])
+            $write("%02X ", frame.payload[i]);
+        $display("");
         // let mac know data is available
         ETH_RXDV <= 1'b1;
         
@@ -175,10 +179,10 @@ module tb_udp_parser_top;
         send_byte(frame.ether_type[1]);
         send_byte(frame.ether_type[0]);
         // send payload
-        foreach(frame.payload[i]) begin
-            if (crc_err) send_byte(8'hAB);
-            else send_byte(frame.payload[i]);
-        end
+        foreach(frame.payload[i]) send_byte(frame.payload[i]);
+        
+        if (crc_err) send_byte(8'hAB);
+        
         // send FSC
         for (int i = 0; i < 4; i++) send_byte(frame.fcs[i]);
         

@@ -38,7 +38,7 @@ module ip_parser #(
     output logic ip_err
 );
 
-    typedef enum logic [1:0] { HEADER, PAYLOAD, ERROR } state_t;
+    typedef enum logic [1:0] { HEADER, PAYLOAD, FINISH, ERROR } state_t;
     state_t state;
     logic [$clog2(MAX_IP_HEADER_LEN)-1:0] header_cnt;
     
@@ -122,8 +122,10 @@ module ip_parser #(
                     PAYLOAD: begin
                         ip_byte_valid <= 1'b1;
                         if (eth_eof && eth_err) begin
+                            // crc error in payload
                             ip_err <= 1'b1;
                             ip_eof <= 1'b1;
+                            header_cnt <= '0;
                             state <= HEADER;
                         end else begin
                             ip_data_out <= eth_data_in;
@@ -131,14 +133,15 @@ module ip_parser #(
                             if (eth_eof) begin
                                 // end of valid frame
                                 ip_eof <= 1'b1;
+                                header_cnt <= '0;
                                 state <= HEADER;
                             end
                         end
                         
-                    end    
+                    end
                         
                     ERROR: begin
-                        // flush the frame after finding new error (ethertype)
+                        // flush the frame after finding new error (ip version/transport protocol/ip address)
                         if (eth_eof) begin
                             state <= HEADER;
                             header_cnt <= '0;

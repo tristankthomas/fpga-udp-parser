@@ -66,9 +66,8 @@ module eth_parser #(
                     HEADER : begin
                         byte_cnt <= byte_cnt + 1'b1;
                         if (fifo_frame_err && fifo_eof) begin
-                            // frame error from mac - rst count
+                            // frame error from mac - rst count - no eof signal
                             eth_err <= 1'b1;
-                            eth_eof <= 1'b1;
                             byte_cnt <= '0;
                         end else if (byte_cnt == ETHERTYPE_POS) begin
                             ethertype_msb <= data_in;

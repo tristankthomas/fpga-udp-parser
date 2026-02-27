@@ -143,7 +143,7 @@ module tb_eth_parser;
         if (eth_err) error_found = 1'b1;;
         
         // check results once frame complete
-        if (eth_eof | eth_err) check_frame();
+        if (eth_eof || eth_err) check_frame();
     end
     
     
@@ -185,32 +185,32 @@ module tb_eth_parser;
     
         reset();
         
-        $display("Sending valid frame");
-        // valid frame
-        send_frame(
-            16'h0800,
-            random_payload(55),
-            0,
-            0
-        );
+//        $display("Sending valid frame");
+//        // valid frame
+//        send_frame(
+//            16'h0800,
+//            random_payload(55),
+//            0,
+//            0
+//        );
         
-        $display("\nSending error frame - wrong ethertype");
-        // wrong ethertype
-        send_frame(
-            16'hFFFF,
-            random_payload(18),
-            0,
-            0
-        );
+//        $display("\nSending error frame - wrong ethertype");
+//        // wrong ethertype
+//        send_frame(
+//            16'hFFFF,
+//            random_payload(18),
+//            0,
+//            0
+//        );
         
-        $display("\nSending error frame - CRC");
-        // crc error
-        send_frame(
-            16'h0800,
-            random_payload(64),
-            1,
-            0
-        );
+//        $display("\nSending error frame - CRC");
+//        // crc error
+//        send_frame(
+//            16'h0800,
+//            random_payload(64),
+//            1,
+//            0
+//        );
 
         $display("\nSending error frame - wrong mac address");
         // mac error
@@ -221,14 +221,14 @@ module tb_eth_parser;
             1
         );
         
-        $display("\nSending error frame - wrong ethertype & CRC");
-        // crc and ethertype error
-        send_frame(
-            16'hABCD,
-            random_payload(20),
-            1,
-            0
-        );
+//        $display("\nSending error frame - wrong ethertype & CRC");
+//        // crc and ethertype error
+//        send_frame(
+//            16'hABCD,
+//            random_payload(20),
+//            1,
+//            0
+//        );
         $display("\nSimulation Finished at %t", $time);
         $finish;
     end

@@ -21,7 +21,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 module udp_parser_top #(
-    parameter POR_BIT = 24
+    parameter POR_BIT = 24,
+    parameter PULSE_CNT_WIDTH = 22
 )(
     input logic PL_CLK_50M,
     input logic ETH_RXCK,
@@ -135,7 +136,7 @@ module udp_parser_top #(
     
     // send data through ethernet header passer
     eth_parser #(
-        .ETHERTYPE(16'h1234)
+        .ETHERTYPE(16'h0800)
     ) u_eth_parser (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -156,7 +157,7 @@ module udp_parser_top #(
 //    assign PL_LED2 = eth_err;
     // stretch frame_valid for LED1
     pulse_stretcher #(
-        .COUNT_WIDTH(22)
+        .COUNT_WIDTH(PULSE_CNT_WIDTH)
     ) ps_valid (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -166,7 +167,7 @@ module udp_parser_top #(
     
     // stretch frame_err for LED2
     pulse_stretcher #(
-        .COUNT_WIDTH(22)
+        .COUNT_WIDTH(PULSE_CNT_WIDTH)
     ) ps_err (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
