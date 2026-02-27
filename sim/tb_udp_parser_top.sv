@@ -158,7 +158,7 @@ module tb_udp_parser_top;
     endtask
     
     
-    task automatic send_frame (eth_frame frame);
+    task automatic send_frame (input eth_frame frame, input logic crc_err=1'b0);
 
         // let mac know data is available
         ETH_RXDV <= 1'b1;
@@ -175,7 +175,10 @@ module tb_udp_parser_top;
         send_byte(frame.ether_type[1]);
         send_byte(frame.ether_type[0]);
         // send payload
-        foreach(frame.payload[i]) send_byte(frame.payload[i]);
+        foreach(frame.payload[i]) begin
+            if (crc_err) send_byte(8'hAB);
+            else send_byte(frame.payload[i]);
+        end
         // send FSC
         for (int i = 0; i < 4; i++) send_byte(frame.fcs[i]);
         
@@ -201,7 +204,7 @@ module tb_udp_parser_top;
     
     // check for a valid frame
     always @(posedge PL_LED1) begin
-        if (expected_valid) $display("SUCCESS: Valid rame transmitted successfully");
+        if (expected_valid) $display("SUCCESS: Valid frame transmitted successfully");
         else $display("FAIL: Invalid frame transmitted successfully");
         
     end
@@ -215,7 +218,7 @@ module tb_udp_parser_top;
     
     initial begin
         
-        eth_frame f0, f1, f2, f3;
+        eth_frame f0, f1, f2, f3, f4;
         
         // power on reset
         wait(uut.por_done == 1'b1);
@@ -263,6 +266,17 @@ module tb_udp_parser_top;
             0
         );
         send_frame(f3);
+        
+        $display("Sending invalid frame - crc");
+        // invalid frame - wrong mac
+        f4 = new(
+            DEST_MAC,
+            48'h71ABD97E0110,
+            16'h0800,
+            random_payload(16),
+            0
+        );
+        send_frame(f4, 1);
         
         @(posedge ETH_RXCK);
         $display("Simulation Finished at %t", $time);

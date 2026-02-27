@@ -68,6 +68,26 @@ module udp_parser_top #(
         .wr_en(wr_en)
     );
     
+//    pulse_stretcher #(
+//        .COUNT_WIDTH(21)
+//    ) ps_valid (
+//        .clk(ETH_RXCK),
+//        .rst_n(rst_n),
+//        .trigger(frame_valid),
+//        .dout(PL_LED1)
+//    );
+    
+//    // stretch frame_err for LED2
+//    pulse_stretcher #(
+//        .COUNT_WIDTH(21)
+//    ) ps_err (
+//        .clk(ETH_RXCK),
+//        .rst_n(rst_n),
+//        .trigger(frame_err),
+//        .dout(PL_LED2)
+//    );
+    
+    
 
     logic [7:0] m_axis_tdata;
     logic m_axis_tvalid;
@@ -108,14 +128,14 @@ module udp_parser_top #(
 //        .dout(PL_LED2)
 //    );
     
-    logic [7:0] eth_data_in;
+    logic [7:0] eth_data_out;
     logic eth_data_valid;
     logic eth_eof;
     logic eth_err;
     
     // send data through ethernet header passer
     eth_parser #(
-        .ETHERTYPE(16'h0800)
+        .ETHERTYPE(16'h1234)
     ) u_eth_parser (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -124,7 +144,7 @@ module udp_parser_top #(
         .fifo_eof(m_axis_tlast),
         .fifo_frame_err(m_axis_tuser),
         .fifo_ready(m_axis_tready),
-        .eth_data_out(eth_data_in),
+        .eth_data_out(eth_data_out),
         .eth_byte_valid(eth_data_valid),
         .eth_eof(eth_eof),
         .eth_err(eth_err)
@@ -136,7 +156,7 @@ module udp_parser_top #(
 //    assign PL_LED2 = eth_err;
     // stretch frame_valid for LED1
     pulse_stretcher #(
-        .COUNT_WIDTH(5)
+        .COUNT_WIDTH(22)
     ) ps_valid (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -146,7 +166,7 @@ module udp_parser_top #(
     
     // stretch frame_err for LED2
     pulse_stretcher #(
-        .COUNT_WIDTH(5)
+        .COUNT_WIDTH(22)
     ) ps_err (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),

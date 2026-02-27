@@ -71,23 +71,8 @@ module mii_mac_rx #(
     logic [SHIFT-1:0] mac_err_pipe;
     logic crc_err;
     logic mac_err;
-
     logic incoming_mac_err;
-    assign incoming_mac_err = (state == HEADER) && (byte_cnt < MAC_LEN) && (rx_byte !== MAC_ADDR[MAC_LEN-1-byte_cnt]);
    
-    // shift pipelines
-    always_ff @(posedge rx_clk or negedge rst_n) begin
-        if (~rst_n) begin
-            data_pipe <= '0;
-            wr_pipe <= '0;
-            mac_err_pipe <= '0;
-        end else if (rx_byte_valid) begin
-            data_pipe <= {data_pipe[3:0], rx_byte};
-            wr_pipe <= {wr_pipe[3:0], (state == HEADER || state == PAYLOAD)};
-            mac_err_pipe <= {mac_err_pipe[3:0], incoming_mac_err};
-        end
-    end
-    
     
     always_ff @(posedge rx_clk or negedge rst_n) begin
         if (~rst_n) begin
@@ -96,8 +81,19 @@ module mii_mac_rx #(
             frame_valid <= 1'b0;
             crc_err <= 1'b0;
             init_crc <= 1'b1;
+            data_pipe <= '0;
+            wr_pipe <= '0;
+            mac_err_pipe <= '0;
         end else begin
             init_crc <= 1'b0;
+            
+            // shift pipelines
+            if (rx_byte_valid) begin
+                data_pipe <= {data_pipe[3:0], rx_byte};
+                wr_pipe <= {wr_pipe[3:0], (state == HEADER || state == PAYLOAD)};
+                mac_err_pipe <= {mac_err_pipe[3:0], incoming_mac_err};
+            end
+            
             case (state)
                 IDLE : begin
                     frame_valid <= 1'b0;
@@ -124,8 +120,8 @@ module mii_mac_rx #(
                         // check if byte 5 cycles ago had mac error
                         if (mac_err) begin
                             state <= FLUSH;
-                            wr_pipe <= 5'b0;
-                            mac_err_pipe <= 5'b0;
+                            wr_pipe <= '0;
+                            mac_err_pipe <= '0;
                         end
 
 
@@ -164,7 +160,7 @@ module mii_mac_rx #(
                 FINISH: begin
                     frame_valid <= 1'b0;
                     crc_err <= 1'b0;
-                    wr_pipe <= 5'b0;
+                    wr_pipe <= '0;
                     if (byte_cnt == IFG_CYCLES) state <= IDLE;
                     else byte_cnt <= byte_cnt + 1'b1;
                 end
@@ -175,11 +171,12 @@ module mii_mac_rx #(
     end
     
     
-    assign compute_crc = rx_byte_valid & (state == HEADER || state == PAYLOAD);
+    assign compute_crc = rx_byte_valid && (state == HEADER || state == PAYLOAD);
     // want wr_en to pulse with available byte & 5th shift for crc result (valid/err)
     assign wr_en = wr_pipe[4] && (rx_byte_valid || crc_err || frame_valid); 
     assign data_out = data_pipe[4];
     assign frame_err = (mac_err || crc_err);
+    assign incoming_mac_err = (state == HEADER) && (byte_cnt < MAC_LEN) && (rx_byte !== MAC_ADDR[MAC_LEN-1-byte_cnt]);
     assign mac_err = mac_err_pipe[4] && rx_byte_valid;
     
 endmodule

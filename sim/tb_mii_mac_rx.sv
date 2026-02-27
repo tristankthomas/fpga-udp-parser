@@ -314,7 +314,7 @@ module tb_mii_mac_rx;
         
         @(posedge rx_clk);
         $display("Simulation Finished at %t", $time);
-        $finish;        
+        $finish;
         
     
     end
