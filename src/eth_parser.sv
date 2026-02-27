@@ -37,7 +37,7 @@ module eth_parser #(
     output logic eth_err
 );
 
-    typedef enum logic [1:0] { HEADER, PAYLOAD, ERROR } state_t;
+    typedef enum logic [1:0] { HEADER, PAYLOAD, FLUSH } state_t;
     state_t state;
     
     logic [$clog2(ETH_HEADER_LEN)-1:0] byte_cnt;
@@ -78,7 +78,7 @@ module eth_parser #(
                                 state <= PAYLOAD;
                             end else begin
                                 eth_err <= 1'b1;
-                                state <= ERROR;
+                                state <= FLUSH;
                             end
                         end
                         
@@ -106,7 +106,7 @@ module eth_parser #(
                     end
                     
                     
-                    ERROR : begin
+                    FLUSH : begin
                         // flush the frame after finding new error (ethertype)
                         if (fifo_eof) begin
                             state <= HEADER;

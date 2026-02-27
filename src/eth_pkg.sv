@@ -12,6 +12,7 @@ package eth_pkg;
     localparam ETH_HEADER_LEN = 14;
     
     localparam MAX_IP_HEADER_LEN = 60;
+    localparam UDP_HEADER_LEN = 8;
     
     localparam IFG_CYCLES = 12;
 

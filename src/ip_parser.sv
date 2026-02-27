@@ -38,7 +38,7 @@ module ip_parser #(
     output logic ip_err
 );
 
-    typedef enum logic [1:0] { HEADER, PAYLOAD, FINISH, ERROR } state_t;
+    typedef enum logic [1:0] { HEADER, PAYLOAD, FLUSH } state_t;
     state_t state;
     logic [$clog2(MAX_IP_HEADER_LEN)-1:0] header_cnt;
     
@@ -68,7 +68,7 @@ module ip_parser #(
                                 if (eth_data_in[7:4] !== 4'd4) begin
                                     // ensure frame is IPv4
                                     ip_err <= 1'b1;
-                                    state <= ERROR;
+                                    state <= FLUSH;
                                 end
                                 ihl <= eth_data_in[3:0];
                                 header_cnt <= header_cnt + 1'b1;
@@ -91,7 +91,7 @@ module ip_parser #(
                                 // check frame uses correct transport protocol
                                 if (eth_data_in !== TRANSPORT_PROTOCOL) begin
                                     ip_err <= 1'b1;
-                                    state <= ERROR;
+                                    state <= FLUSH;
                                 end
                                 header_cnt <= header_cnt + 1'b1;
                             end
@@ -107,7 +107,7 @@ module ip_parser #(
                                 // check if ip address is correct
                                 if ({ip_dest_addr[23:0], eth_data_in} !== IP_ADDRESS) begin
                                     ip_err <= 1'b1;
-                                    state <= ERROR;
+                                    state <= FLUSH;
                                 end
                                 else if (ihl == 5) state <= PAYLOAD;
                             end
@@ -140,7 +140,7 @@ module ip_parser #(
                         
                     end
                         
-                    ERROR: begin
+                    FLUSH: begin
                         // flush the frame after finding new error (ip version/transport protocol/ip address)
                         if (eth_eof) begin
                             state <= HEADER;
