@@ -43,7 +43,7 @@ module mii_mac_rx #(
     logic init_crc;
     logic [$clog2(MAX_PAYLOAD_LEN)-1:0] byte_cnt;
     
-    typedef enum logic [2:0] { IDLE, PREAMBLE, HEADER, PAYLOAD, FINISH } state_t;
+    typedef enum logic [2:0] { IDLE, PREAMBLE, HEADER, PAYLOAD, FLUSH, FINISH } state_t;
     state_t state;
     
     mii_to_byte u_mii_to_byte (
@@ -64,10 +64,30 @@ module mii_mac_rx #(
         .crc(curr_crc) 
     );
     
+    localparam SHIFT = 5;
     // create a 5 cycle delay so that the last payload byte aligns with the crc result (valid | err)
-    byte_t [4:0] data_pipe;
-    logic [4:0] wr_pipe;
+    byte_t [SHIFT-1:0] data_pipe;
+    logic [SHIFT-1:0] wr_pipe;
+    logic [SHIFT-1:0] mac_err_pipe;
     logic crc_err;
+    logic mac_err;
+
+    logic incoming_mac_err;
+    assign incoming_mac_err = (state == HEADER) && (byte_cnt < MAC_LEN) && (rx_byte !== MAC_ADDR[MAC_LEN-1-byte_cnt]);
+   
+    // shift pipelines
+    always_ff @(posedge rx_clk or negedge rst_n) begin
+        if (~rst_n) begin
+            data_pipe <= '0;
+            wr_pipe <= '0;
+            mac_err_pipe <= '0;
+        end else if (rx_byte_valid) begin
+            data_pipe <= {data_pipe[3:0], rx_byte};
+            wr_pipe <= {wr_pipe[3:0], (state == HEADER || state == PAYLOAD)};
+            mac_err_pipe <= {mac_err_pipe[3:0], incoming_mac_err};
+        end
+    end
+    
     
     always_ff @(posedge rx_clk or negedge rst_n) begin
         if (~rst_n) begin
@@ -76,15 +96,12 @@ module mii_mac_rx #(
             frame_valid <= 1'b0;
             crc_err <= 1'b0;
             init_crc <= 1'b1;
-            wr_pipe <= 5'b0;
-
         end else begin
             init_crc <= 1'b0;
             case (state)
                 IDLE : begin
                     frame_valid <= 1'b0;
                     crc_err <= 1'b0;
-//                    wr_en <= 1'b0;
                     if (rx_byte_valid && rx_byte === PREAMBLE_BYTE) state <= PREAMBLE;
                 end
                 
@@ -103,44 +120,30 @@ module mii_mac_rx #(
                 end
                 
                 HEADER: begin
-                    // we enter this state based on rx_byte so no shift
                     if (rx_byte_valid) begin
-                        // read in the header with 5 cycle delay for FCS
-                        wr_pipe <= {wr_pipe[3:0], 1'b1};
-                        data_pipe <= {data_pipe[3:0], rx_byte};
-                    end
-                        
-                    if (wr_en) begin
-                        if (byte_cnt < MAC_LEN) begin
-                            // if fpga mac is invalid then flush frame
-                            if (data_out !== MAC_ADDR[MAC_LEN-1-byte_cnt]) begin
-//                                frame_err <= 1'b1;
-                                state <= IDLE;
-                                wr_pipe <= 5'b0;
+                        // check if byte 5 cycles ago had mac error
+                        if (mac_err) begin
+                            state <= FLUSH;
+                            wr_pipe <= 5'b0;
+                            mac_err_pipe <= 5'b0;
+                        end
 
-                                
-                            end
-                            byte_cnt <= byte_cnt + 1'b1;
-                        end else if (byte_cnt < ETH_HEADER_LEN) begin
-                            // source mac and ethertype
-                            byte_cnt <= byte_cnt + 1'b1;
-                        end else begin
-                            // header complete
+
+                        if (byte_cnt == ETH_HEADER_LEN + SHIFT - 1) begin
+                            // ensure we only leave HEADER once all the header bytes have been sent to data_out
                             state <= PAYLOAD;
                             byte_cnt <= '0;
-                        end
+                        end else 
+                            // increment byte count
+                            byte_cnt <= byte_cnt + 1'b1;
+                        
+                        
                     end
                 end
                 
                 PAYLOAD: begin
-                    // pulse based on valid bytes
-                    if (rx_byte_valid) begin
-                        // read in payload
-                        wr_pipe <= {wr_pipe[3:0], 1'b1};
-                        data_pipe <= {data_pipe[3:0], rx_byte};
-                        
-                    end else if (~rx_valid) begin
-                        // perform FCS check - reversed order
+                    if (~rx_valid) begin
+                        // perform FCS check on live bytes - reversed order
                         if (curr_crc == 32'hDEBB20E3) begin
                             frame_valid <= 1'b1;
                             crc_err <= 1'b0;
@@ -152,6 +155,10 @@ module mii_mac_rx #(
                         state <= FINISH;
                         byte_cnt <= '0;
                     end
+                end
+                
+                FLUSH: begin
+                    if (~rx_valid) state <= FINISH; 
                 end
                 
                 FINISH: begin
@@ -168,12 +175,12 @@ module mii_mac_rx #(
     end
     
     
-    assign compute_crc = rx_byte_valid & (state == HEADER | state == PAYLOAD);
-    assign wr_en = wr_pipe[4] & (rx_byte_valid | frame_err | frame_valid); // want wr_en to pulse with available byte
+    assign compute_crc = rx_byte_valid & (state == HEADER || state == PAYLOAD);
+    // want wr_en to pulse with available byte & 5th shift for crc result (valid/err)
+    assign wr_en = wr_pipe[4] && (rx_byte_valid || crc_err || frame_valid); 
     assign data_out = data_pipe[4];
-    
-    assign mac_mismatch = wr_en && (state == HEADER) && (byte_cnt < MAC_LEN) && (data_out !== MAC_ADDR[MAC_LEN-1-byte_cnt]);
-    assign frame_err = mac_mismatch || crc_err;
+    assign frame_err = (mac_err || crc_err);
+    assign mac_err = mac_err_pipe[4] && rx_byte_valid;
     
 endmodule
 

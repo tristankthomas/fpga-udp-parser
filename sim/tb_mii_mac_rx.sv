@@ -151,7 +151,7 @@ module tb_mii_mac_rx;
     endtask
     
     
-    task automatic send_frame (eth_frame frame);
+    task automatic send_frame (eth_frame frame, logic crc_err=1'b0);
         
         // populate the expected results
         for (int i = MAC_LEN-1; i >= 0; i--) tx_frame_q.push_back(frame.dest_mac[i]);
@@ -181,7 +181,10 @@ module tb_mii_mac_rx;
         foreach(frame.payload[i]) send_byte(frame.payload[i]);
 
         // send FSC
-        for (int i = 0; i < 4; i++) send_byte(frame.fcs[i]);
+        for (int i = 0; i < 4; i++) begin
+            if (crc_err) send_byte(8'h0A); 
+            else send_byte(frame.fcs[i]);
+        end
 
         // end of frame
         rx_valid <= 1'b0;
@@ -295,9 +298,19 @@ module tb_mii_mac_rx;
             48'h123456789ABC,
             48'h71ABD97E0110,
             16'h0800,
-            random_payload(20)
+            random_payload(4)
         );
         send_frame(f2);
+        
+        $display("Sending invaild frame - crc");
+        // invalid frame - wrong mac
+        f2 = new(
+            DEST_MAC,
+            48'h71ABD97E0110,
+            16'h0800,
+            '{8'hab, 8'hcd}
+        );
+        send_frame(f2, 1'b1);
         
         @(posedge rx_clk);
         $display("Simulation Finished at %t", $time);
