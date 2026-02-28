@@ -107,13 +107,17 @@ module tb_ip_parser;
         input byte_t [3:0] dest_ip_addr,
         input byte_t payload[],
         input logic crc_err,
+        input logic total_len_err = 0,
         input logic force_bad_checksum = 0
     );
         byte_t header[20];
         logic [15:0] total_len;
         logic [15:0] checksum;
-    
-        total_len = 16'd20 + payload.size();
+        
+        if (total_len_err)
+            total_len = 16'd20 + payload.size()+5;
+        else total_len = 16'd20 + payload.size();
+
 
         // assemble header for checksum calculation
         header = {>>{
@@ -136,7 +140,7 @@ module tb_ip_parser;
 
         error_expected = ip_version !== 4'd4 || dest_ip_addr !== IP_ADDRESS || 
                          crc_err || trans_protocol !== TRANSPORT_PROTOCOL || 
-                         force_bad_checksum;
+                         force_bad_checksum || total_len_err;
         
         // send header
         foreach (header[i]) send_data(header[i]);
@@ -228,7 +232,8 @@ module tb_ip_parser;
             32'h12341234,
             IP_ADDRESS,
             random_payload(20),
-            0
+            0,
+            1
         );
         
         $display("Sending invalid frame - wrong ip protocol");
@@ -250,6 +255,7 @@ module tb_ip_parser;
             32'h12341234,
             IP_ADDRESS,
             random_payload(55),
+            0,
             0,
             1 // force_bad_checksum
         );

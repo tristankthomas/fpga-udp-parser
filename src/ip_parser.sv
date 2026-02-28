@@ -58,6 +58,7 @@ module ip_parser #(
     logic [3:0] ihl;
     logic [15:0] ip_total_len;
     logic [31:0] ip_dest_addr;
+    logic [15:0] payload_rem_cnt;
     
     always_ff @(posedge clk or negedge rst_n) begin
         if (~rst_n) begin
@@ -73,7 +74,7 @@ module ip_parser #(
             ip_eof <= 1'b0;
             ip_err <= 1'b0;
             init_checksum <= 1'b0;
-
+            
             if (eth_byte_valid) begin
                 case (state)
                     HEADER: begin
@@ -130,36 +131,37 @@ module ip_parser #(
                                 state <= FLUSH;
                             end else begin
                                 state <= PAYLOAD;
+                                payload_rem_cnt = ip_total_len - (ihl << 2);
                             end
                         end
 
                     end
-                    
                     PAYLOAD: begin
-                        ip_byte_valid <= 1'b1;
-                        if (eth_eof && eth_err) begin
-                            // crc error in payload
-                            ip_err <= 1'b1;
+                        // ignores padding when ip_total_len < actual length - no error
+                        if (payload_rem_cnt > 16'd0) begin
+                            ip_byte_valid <= 1'b1;
+                            ip_data_out <= eth_data_in;
+                            payload_rem_cnt <= payload_rem_cnt - 1'b1;
+                        end
+
+                        if (eth_eof) begin
+                            if (payload_rem_cnt > 16'd1) begin
+                                // check if packet was truncated; ip_total_len > actual length - error
+                                ip_err <= 1'b1;
+                            end else if (eth_err) begin
+                                // upstream error
+                                ip_err <= 1'b1;
+                            end
+                            // end of frame valid
                             ip_eof <= 1'b1;
                             init_checksum <= 1'b1;
                             header_cnt <= '0;
                             state <= HEADER;
-                        end else begin
-                            ip_data_out <= eth_data_in;
-                            
-                            if (eth_eof) begin
-                                // end of valid frame
-                                ip_eof <= 1'b1;
-                                init_checksum <= 1'b1;
-                                header_cnt <= '0;
-                                state <= HEADER;
-                            end
                         end
-                        
                     end
                         
                     FLUSH: begin
-                        // flush the frame after finding new error (ip version/transport protocol/ip address/checksum)
+                        // flush the frame after finding new error in header (ip version/transport protocol/ip address/checksum)
                         if (eth_eof) begin
                             state <= HEADER;
                             header_cnt <= '0;
