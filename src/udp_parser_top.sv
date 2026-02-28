@@ -36,6 +36,8 @@ module udp_parser_top #(
 );
 
     localparam MAC_ADDR = 48'h04A4DD0935C7;
+    localparam IP_ADDR = 32'hC0A80101;
+    localparam PORT_NUM = 16'h1234;
     
     logic rst_n;
     logic [7:0] fifo_byte;
@@ -69,26 +71,6 @@ module udp_parser_top #(
         .wr_en(wr_en)
     );
     
-//    pulse_stretcher #(
-//        .COUNT_WIDTH(21)
-//    ) ps_valid (
-//        .clk(ETH_RXCK),
-//        .rst_n(rst_n),
-//        .trigger(frame_valid),
-//        .dout(PL_LED1)
-//    );
-    
-//    // stretch frame_err for LED2
-//    pulse_stretcher #(
-//        .COUNT_WIDTH(21)
-//    ) ps_err (
-//        .clk(ETH_RXCK),
-//        .rst_n(rst_n),
-//        .trigger(frame_err),
-//        .dout(PL_LED2)
-//    );
-    
-    
 
     logic [7:0] m_axis_tdata;
     logic m_axis_tvalid;
@@ -117,17 +99,7 @@ module udp_parser_top #(
     );
     
     assign s_axis_tlast = mac_frame_valid || mac_frame_err;
-    assign fifo_overflow = wr_en && !s_axis_tready;
- 
-//    // stretch fifo overflow for LED2
-//    pulse_stretcher #(
-//        .COUNT_WIDTH(21)
-//    ) ps_fifo_err (
-//        .clk(ETH_RXCK),
-//        .rst_n(rst_n),
-//        .trigger(fifo_overflow),
-//        .dout(PL_LED2)
-//    );
+    assign fifo_overflow = wr_en && !s_axis_tready; // handle
     
     logic [7:0] eth_data_out;
     logic eth_data_valid;
@@ -159,7 +131,7 @@ module udp_parser_top #(
     // send data through IP header passer
     ip_parser #(
         .TRANSPORT_PROTOCOL(8'd17),
-        .IP_ADDRESS(32'hC0A80101)
+        .IP_ADDRESS(IP_ADDR)
     ) u_ip_parser (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -182,7 +154,7 @@ module udp_parser_top #(
 
     // send data through UDP header parser
     udp_parser #(
-        .DEST_PORT(16'h1234)
+        .DEST_PORT(PORT_NUM)
     ) u_udp_parser (
         .clk(PL_CLK_50M),
         .rst_n(rst_n),
@@ -203,8 +175,7 @@ module udp_parser_top #(
     
     logic frame_err;
     assign frame_err = eth_err || ip_err || udp_err;
-//    assign PL_LED1 = eth_eof && ~eth_err;
-//    assign PL_LED2 = eth_err;
+
     // stretch frame_valid for LED1
     pulse_stretcher #(
         .COUNT_WIDTH(PULSE_CNT_WIDTH)
