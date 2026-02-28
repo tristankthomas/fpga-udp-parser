@@ -1,11 +1,12 @@
 `timescale 1ns / 1ps
+
 //////////////////////////////////////////////////////////////////////////////////
 // Company: 
 // Engineer: 
 // 
 // Create Date: 19.02.2026 22:28:29
 // Design Name: 
-// Module Name: tp_ip_parser
+// Module Name: tb_ip_parser
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,6 +20,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+import eth_pkg::*;
 
 module tb_ip_parser;
 
@@ -55,6 +57,20 @@ module tb_ip_parser;
     initial clk = 0;
     always #(CLK_PERIOD) clk <= ~clk;
     
+    // checksum calculation function
+    function automatic logic [15:0] calculate_ip_checksum(input byte_t header[]);
+        logic [31:0] sum = 0;
+        logic [15:0] word;
+        for (int i = 0; i < header.size(); i += 2) begin
+            word = {header[i], header[i+1]};
+            sum = sum + word;
+        end
+        // while carry bit
+        while (sum >> 16) begin
+            sum = (sum & 32'hFFFF) + (sum >> 16);
+        end
+        return ~sum[15:0];
+    endfunction
     
     task reset;
         rst_n <= 1'b0;
@@ -77,7 +93,7 @@ module tb_ip_parser;
         if (err) eth_err <= 1'b1;
         // simulate tvalid from fifo (1 pulse every 4 cycles)
         @(posedge clk);
-         eth_eof <= 1'b0;
+        eth_eof <= 1'b0;
         eth_err <= 1'b0;
         eth_byte_valid <= 1'b0;
         repeat(3) @(posedge clk);
@@ -86,44 +102,44 @@ module tb_ip_parser;
     // driver
     task send_frame (
         input logic [3:0] ip_version,
-        input byte_t [7:0] trans_protocol,
+        input byte_t trans_protocol,
         input byte_t [3:0] src_ip_addr,
         input byte_t [3:0] dest_ip_addr,
         input byte_t payload[],
-        input logic crc_err
+        input logic crc_err,
+        input logic force_bad_checksum = 0
     );
+        byte_t header[20];
         logic [15:0] total_len;
+        logic [15:0] checksum;
     
-        $write("Payload (%0d bytes): ", payload.size());
-        foreach (payload[i])
-            $write("%02X ", payload[i]);
-        $display("");
-
-        error_expected = ip_version !== 4'd4 || dest_ip_addr !== IP_ADDRESS || crc_err || trans_protocol !== TRANSPORT_PROTOCOL;
-        
-        // send ip version and ihl
-        send_data({ip_version, 4'd5});
-        
-        // send dscp/ecn
-        send_data($urandom());
-        
-        // send packet length
         total_len = 16'd20 + payload.size();
-        send_data(total_len[15:8]);
-        send_data(total_len[7:0]);
+
+        // assemble header for checksum calculation
+        header = {>>{
+            {ip_version, 4'd5}, // version & ihl
+            8'h00,              // dscp & ecn
+            total_len,          // total length
+            16'h1234,           // identification
+            16'h0000,           // flags & fragment offset
+            8'h40,              // ttl
+            trans_protocol,     // protocol
+            16'h0000,           // checksum placeholder
+            src_ip_addr,        // source address
+            dest_ip_addr        // destination address
+        }};
+
+        checksum = calculate_ip_checksum(header);
+        {header[10], header[11]} = checksum;    
+
+        if (force_bad_checksum) header[10] = ~header[10];
+
+        error_expected = ip_version !== 4'd4 || dest_ip_addr !== IP_ADDRESS || 
+                         crc_err || trans_protocol !== TRANSPORT_PROTOCOL || 
+                         force_bad_checksum;
         
-        // send ident, flags, fragment, ttl
-        for (int i = 0; i < 5; i++) send_data($urandom());
-        
-        // send transport protocol
-        send_data(trans_protocol);
-        
-        // send checksum - skip for now
-        for (int i = 0; i < 2; i++) send_data($urandom());
-        
-        // send ip addresses
-        for (int i = 3; i >= 0; i--) send_data(src_ip_addr[i]);
-        for (int i = 3; i >= 0; i--) send_data(dest_ip_addr[i]);
+        // send header
+        foreach (header[i]) send_data(header[i]);
         
         // send payload
         foreach (payload[i]) begin
@@ -133,7 +149,6 @@ module tb_ip_parser;
                 break;
             end
             send_data(payload[i]);
-            
         end
 
         cleanup();
@@ -158,7 +173,6 @@ module tb_ip_parser;
         return payload;
     endfunction
     
-    
     // scoreboard
     always @(posedge clk) begin
         // add received byte to queue
@@ -170,7 +184,6 @@ module tb_ip_parser;
         // check results once frame complete
         if (ip_eof || ip_err) check_frame();
     end
-    
     
     task check_frame;
         if (error_expected) begin
@@ -191,12 +204,10 @@ module tb_ip_parser;
                     $display("ERROR: Byte mismatch. Expected: %h, Result: %h", tx_data_q[i], rx_data_q[i]);
                     match = 0;
                 end
-            
             end
             if (match) begin
-                $display("SUCCESS: Frame recevied correctly.");
+                $display("SUCCESS: Frame received correctly.");
             end
-            
         end
         // clear queues for new frame
         tx_data_q.delete();
@@ -204,7 +215,6 @@ module tb_ip_parser;
         error_found = 1'b0;
         error_expected = 1'b0;
     endtask
-    
     
     initial begin
     
@@ -217,12 +227,12 @@ module tb_ip_parser;
             8'd17,
             32'h12341234,
             IP_ADDRESS,
-            random_payload(55),
+            random_payload(20),
             0
         );
         
         $display("Sending invalid frame - wrong ip protocol");
-        // valid frame
+        // invalid version
         send_frame(
             4'd3,
             8'd17,
@@ -232,8 +242,20 @@ module tb_ip_parser;
             0
         );
         
+        $display("Sending invalid frame - bad checksum");
+        // bad checksum
+        send_frame(
+            4'd4,
+            8'd17,
+            32'h12341234,
+            IP_ADDRESS,
+            random_payload(55),
+            0,
+            1 // force_bad_checksum
+        );
+
         $display("Sending invalid frame - crc error");
-        // valid frame
+        // crc error
         send_frame(
             4'd4,
             8'd17,
@@ -242,7 +264,6 @@ module tb_ip_parser;
             random_payload(55),
             1
         );
-        
         
         $display("\nSimulation Finished at %t", $time);
         $finish;

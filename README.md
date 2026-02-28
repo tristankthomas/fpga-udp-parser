@@ -23,6 +23,7 @@ cd <path_to_repo>/udp_parser
 source scripts/recreate_project.tcl
 ```
 
+
 ## Hardware Specs
 - Development Board: [Microphase Z7-Lite](https://fpga-docs.microphase.cn/en/latest/DEV_BOARD/Z7-LITE/Z7-Lite_Reference_Manual.html) featuring Xilinx Zynq-7000 (XC7Z020-CLG400).
 - Ethernet PHY: Realtek [RTL8201F-VB-CG](https://file.elecfans.com/web1/M00/99/0F/o4YBAF0VytaAI7ezABH66fmIRIg854.pdf?filename=RTL8201F-VB-CG.pdf) supporting 10/100 Mbps via MII.
@@ -74,12 +75,17 @@ udp_parser/
 | **`recreate_project.tcl`** | Used to create the project structure in Vivado (see Installation) |
 
 
-
-
+## Usage
+If making changes to project structure, make sure to update the Tcl script by running the following in the Tcl Vivado Console:
+```
+cd <path_to_repo>/udp_parser
+write_project_tcl -force -no_copy_sources -all_properties scripts/recreate_project.tcl
+```
+Then run `.\scripts\fix_paths.ps1` in Powershell.
 <!-- 
 
 ## Resource Utilisation
-## Usage
+
 
 
 ## Block Design

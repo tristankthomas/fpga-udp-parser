@@ -41,6 +41,19 @@ module ip_parser #(
     typedef enum logic [1:0] { HEADER, PAYLOAD, FLUSH } state_t;
     state_t state;
     logic [$clog2(MAX_IP_HEADER_LEN)-1:0] header_cnt;
+    logic [15:0] curr_checksum;
+    logic init_checksum;
+    logic compute_checksum;
+    
+    ip_checksum_engine u_ip_checksum_engine (
+         .clk(clk),
+         .rst_n(rst_n),
+         .byte_valid(eth_byte_valid),
+         .byte_in(eth_data_in),
+         .init(init_checksum),
+         .en(compute_checksum),
+         .checksum(curr_checksum)
+    );
     
     logic [3:0] ihl;
     logic [15:0] ip_total_len;
@@ -53,12 +66,14 @@ module ip_parser #(
             ip_err <= 1'b0;
             header_cnt <= '0;
             state <= HEADER;
+            init_checksum <= 1'b1;
         end else begin
         
             ip_byte_valid <= 1'b0;
             ip_eof <= 1'b0;
             ip_err <= 1'b0;
-            // TODO: align ensure alignment with data
+            init_checksum <= 1'b0;
+
             if (eth_byte_valid) begin
                 case (state)
                     HEADER: begin
@@ -66,7 +81,6 @@ module ip_parser #(
                             8'd0: begin
                                 // byte 1 IP version & ihl
                                 if (eth_data_in[7:4] !== 4'd4) begin
-                                    // ensure frame is IPv4
                                     ip_err <= 1'b1;
                                     state <= FLUSH;
                                 end
@@ -74,7 +88,6 @@ module ip_parser #(
                                 header_cnt <= header_cnt + 1'b1;
                             end
                             
-                            // bytes 3 and 4 packet size
                             8'd2: begin
                                 ip_total_len[15:8] <= eth_data_in;
                                 header_cnt <= header_cnt + 1'b1;
@@ -85,10 +98,7 @@ module ip_parser #(
                                 header_cnt <= header_cnt + 1'b1;
                             end
                 
-                            // skip ident, flags, ttl
-                
                             8'd9: begin
-                                // check frame uses correct transport protocol
                                 if (eth_data_in !== TRANSPORT_PROTOCOL) begin
                                     ip_err <= 1'b1;
                                     state <= FLUSH;
@@ -96,7 +106,6 @@ module ip_parser #(
                                 header_cnt <= header_cnt + 1'b1;
                             end
                 
-                            // destination IP addr
                             8'd16, 8'd17, 8'd18: begin
                                 header_cnt <= header_cnt + 1'b1;
                                 ip_dest_addr <= {ip_dest_addr[23:0], eth_data_in};
@@ -104,19 +113,26 @@ module ip_parser #(
                             
                             8'd19: begin
                                 header_cnt <= header_cnt + 1'b1;
-                                // check if ip address is correct
                                 if ({ip_dest_addr[23:0], eth_data_in} !== IP_ADDRESS) begin
                                     ip_err <= 1'b1;
                                     state <= FLUSH;
                                 end
-                                else if (ihl == 5) state <= PAYLOAD;
                             end
-                            
-                            // add new options based on ihl
-                            8'd59: state <= PAYLOAD;
                 
                             default: header_cnt <= header_cnt + 1'b1;
                         endcase
+
+                        // checksum check
+                        if (header_cnt == (ihl << 2) - 1) begin
+                            // checksum of header including checksum field should be 0
+                            if (curr_checksum != 16'h0000) begin
+                                ip_err <= 1'b1;
+                                state <= FLUSH;
+                            end else begin
+                                state <= PAYLOAD;
+                            end
+                        end
+
                     end
                     
                     PAYLOAD: begin
@@ -125,6 +141,7 @@ module ip_parser #(
                             // crc error in payload
                             ip_err <= 1'b1;
                             ip_eof <= 1'b1;
+                            init_checksum <= 1'b1;
                             header_cnt <= '0;
                             state <= HEADER;
                         end else begin
@@ -133,6 +150,7 @@ module ip_parser #(
                             if (eth_eof) begin
                                 // end of valid frame
                                 ip_eof <= 1'b1;
+                                init_checksum <= 1'b1;
                                 header_cnt <= '0;
                                 state <= HEADER;
                             end
@@ -141,10 +159,11 @@ module ip_parser #(
                     end
                         
                     FLUSH: begin
-                        // flush the frame after finding new error (ip version/transport protocol/ip address)
+                        // flush the frame after finding new error (ip version/transport protocol/ip address/checksum)
                         if (eth_eof) begin
                             state <= HEADER;
                             header_cnt <= '0;
+                            init_checksum <= 1'b1;
                         end
                     end
                     
@@ -154,6 +173,9 @@ module ip_parser #(
         end
     
     end
+    
+    
+    assign compute_checksum = (state == HEADER);
     
     
     
