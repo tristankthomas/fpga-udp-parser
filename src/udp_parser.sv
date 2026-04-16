@@ -47,54 +47,51 @@ module udp_parser #(
             if (ip_byte_valid) begin
                 case (state)
                     HEADER: begin
+                        // default increment
+                        header_cnt <= header_cnt + 1'b1; 
+
                         case (header_cnt)
                             // bytes 1 and 2: source port
                             8'd0: begin
                                 src_port[15:8] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             8'd1: begin
                                 src_port[7:0] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
 
                             // bytes 3 and 4: destination port
                             8'd2: begin
                                 dest_port[15:8] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             8'd3: begin
                                 if (DEST_PORT != {dest_port[15:8], ip_data_in}) begin
                                     udp_err <= 1'b1;
                                     state <= FLUSH;
                                 end
-                                header_cnt <= header_cnt + 1'b1;
                             end
 
                             // bytes 5 and 6: length
                             8'd4: begin
                                 udp_len[15:8] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             8'd5: begin
                                 udp_len[7:0] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
 
                             // bytes 7 and 8: checksum
                             8'd6: begin
                                 udp_checksum[15:8] <= ip_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             
                             8'd7: begin
                                 udp_checksum[7:0] <= ip_data_in;
-                                header_cnt <= '0;
+                                // Overrides the default increment above
+                                header_cnt <= '0; 
                                 payload_rem_cnt <= udp_len - 16'd8;
                                 state <= PAYLOAD;
                             end
 
-                            default: header_cnt <= header_cnt + 1'b1;
+                            default: ;
                         endcase
                     end
                     

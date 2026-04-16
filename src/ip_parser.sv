@@ -78,6 +78,9 @@ module ip_parser #(
             if (eth_byte_valid) begin
                 case (state)
                     HEADER: begin
+                        // default increment
+                        header_cnt <= header_cnt + 1'b1;
+
                         case (header_cnt)
                             8'd0: begin
                                 // IP version & ihl
@@ -86,7 +89,6 @@ module ip_parser #(
                                     state <= FLUSH;
                                 end
                                 ihl <= eth_data_in[3:0];
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             
                             // skip tos
@@ -94,11 +96,9 @@ module ip_parser #(
                             // total packet length
                             8'd2: begin
                                 ip_total_len[15:8] <= eth_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             8'd3: begin
                                 ip_total_len[7:0] <= eth_data_in;
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             
                             // skip ID, flags, frag and ttl
@@ -109,18 +109,15 @@ module ip_parser #(
                                     ip_err <= 1'b1;
                                     state <= FLUSH;
                                 end
-                                header_cnt <= header_cnt + 1'b1;
                             end
                             
                             // skip checksum and srs IP addr
                 
                             8'd16, 8'd17, 8'd18: begin
-                                header_cnt <= header_cnt + 1'b1;
                                 ip_dest_addr <= {ip_dest_addr[23:0], eth_data_in};
                             end
                             
                             8'd19: begin
-                                header_cnt <= header_cnt + 1'b1;
                                 if ({ip_dest_addr[23:0], eth_data_in} !== IP_ADDRESS) begin
                                     ip_err <= 1'b1;
                                     state <= FLUSH;
@@ -129,21 +126,23 @@ module ip_parser #(
                             
                             // add more options if required
                 
-                            default: header_cnt <= header_cnt + 1'b1;
+                            default: ;
                         endcase
 
-                        // checksum check
+                        // checksum check and terminal condition
                         if (header_cnt == (ihl << 2) - 1) begin
+                            header_cnt <= '0; 
+                            
                             // checksum of header including checksum field should be 0
                             if (curr_checksum != 16'h0000) begin
                                 ip_err <= 1'b1;
                                 state <= FLUSH;
                             end else begin
                                 state <= PAYLOAD;
-                                payload_rem_cnt = ip_total_len - (ihl << 2);
+                                // Utilise non-blocking assignment for sequential logic
+                                payload_rem_cnt <= ip_total_len - (ihl << 2);
                             end
                         end
-
                     end
                     PAYLOAD: begin
                         // ignores padding when ip_total_len < actual length - no error
